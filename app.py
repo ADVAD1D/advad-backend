@@ -77,7 +77,7 @@ async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
             "message": "Has enviado muchos mensajes, espera un momento soldado."
         }
     )
-
+@app.head("/")
 @app.get("/")
 async def home():
     logger.info("Home endpoint accessed")
