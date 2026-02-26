@@ -70,7 +70,7 @@ model = genai.GenerativeModel(
     - Si el jugador escribe exactamente "CYB3R4R3N4": Significa que ha superado la primera arena. Felicítalo y dile que una próxima arena se aproxima.
     """,
     generation_config=genai.GenerationConfig(
-        max_output_tokens=250, 
+        max_output_tokens=800, 
         temperature=0.3,
     ),
 
