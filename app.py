@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import logging
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from dotenv import load_dotenv
 import uvicorn
 
@@ -51,6 +52,7 @@ if not API_KEY:
     print("GEMINI_API_KEY environment variable not set")
 else:
     genai.configure(api_key=API_KEY)
+
 model = genai.GenerativeModel(
     model_name="gemini-2.5-flash",
     system_instruction="""
@@ -70,7 +72,12 @@ model = genai.GenerativeModel(
     generation_config=genai.GenerationConfig(
         max_output_tokens=250, 
         temperature=0.3,
-    )
+    ),
+
+    safety_settings={
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
 )
 
 @app.exception_handler(RateLimitExceeded)
@@ -82,6 +89,7 @@ async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
             "message": "Has enviado muchos mensajes, espera un momento soldado."
         }
     )
+
 @app.head("/")
 @app.get("/")
 async def home():
