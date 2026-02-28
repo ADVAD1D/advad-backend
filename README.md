@@ -247,6 +247,20 @@ google-generativeai
 
 ---
 
+## **Changes in app.py**
+
+- **Scope**: Changes made in the main script [app.py](app.py). The following bullets summarize the functional and configuration changes implemented there.
+- **Auth**: `POST /askai` requires the `X-App-Token` header and compares it against the `APP_TOKEN` environment variable; an invalid or missing token returns a `403` JSON error.
+- **Rate limiting**: Uses `slowapi.Limiter` with a custom `get_real_ip` key function that respects `X-Forwarded-For` (so it works behind proxies). The limiter uses in-memory storage and the `/askai` route is decorated with `@limiter.limit("10/minute")` (per client IP).
+- **Gemini integration**: Loads `GEMINI_API_KEY` from the environment (via `python-dotenv`) and configures `google.generativeai`. The server instantiates a `gemini-2.5-flash` model with a strict `system_instruction` enforcing language matching, a military persona, and a special code flow. `generation_config` is set (`max_output_tokens=2048`, `temperature=0.3`) and custom `safety_settings` are applied.
+- **Prompt handling & generation**: Incoming prompts are validated and wrapped into a Spanish "Comando del soldado..." template before being sent to the model via the asynchronous call `model.generate_content_async()`. The returned `response.text` is sent back in the JSON `response` field.
+- **Endpoints**: Adds a health endpoint (`GET`/`HEAD` `/`) that returns a JSON message and a `POST /askai` endpoint that enforces auth, rate limits, prompt validation, and calls the Gemini model.
+- **Error handling & logging**: Adds an exception handler for `RateLimitExceeded` that returns a `429` with a Spanish-friendly message, returns `400` for missing prompts, `500` when the API key is missing or on internal errors, and configures `logging` at the `INFO` level.
+- **CORS & runtime**: Adds permissive CORS middleware, loads environment variables with `dotenv`, and uses `uvicorn.run` when executed directly (reads `PORT`, defaults to `10000`).
+- **Other notes**: Implements a helper `get_real_ip`, prints a warning when `GEMINI_API_KEY` is not set (instead of raising), includes example curl/PowerShell snippets in comments, and keeps rate limit data in memory for simplicity.
+
+---
+
 ## 🧾 License & Contribution
 
 Feel free to fork, modify, or integrate this microserver into your own projects.  
