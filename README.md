@@ -261,6 +261,19 @@ google-generativeai
 
 ---
 
+## 🧪 Unit Tests (`test_mock.py`)
+
+The project includes a suite of unit tests using `pytest`, `fastapi.testclient`, and `unittest.mock` to verify the functionality of the API without making real calls to the Gemini LLM.
+
+- **Environment Setup**: The test suite initializes fake environment variables (`APP_TOKEN` and `GEMINI_API_KEY`) to ensure tests run in a controlled environment and do not depend on real credentials.
+- **Home Endpoint (`test_home_endpoint`)**: Verifies that a `GET` request to the root URL (`/`) returns a `200 OK` status and the expected "Advad AI Server is running!" health check message.
+- **Authentication (Missing Token) (`test_askai_without_token`)**: Ensures that a `POST` request to `/askai` without the `X-App-Token` header is rejected with a `403 Forbidden` status and an "Access denied" error.
+- **Authentication (Invalid Token) (`test_askai_wrong_token`)**: Checks that a `POST` request to `/askai` with an incorrect `X-App-Token` header is also rejected with a `403 Forbidden` status.
+- **Validation (Empty Prompt) (`test_askai_empty_prompt`)**: Validates that sending an empty prompt string to `/askai` results in a `400 Bad Request` status and a "Prompt is required" error.
+- **Successful AI Request Simulation (`test_askai_success`)**: Tests a valid request to `/askai` by mocking the asynchronous call to the Gemini API (`generate_content_async`). It simulates a successful AI response and asserts that the endpoint returns a `200 OK` status with the correct simulated text, verifying that the internal AI generation method was called exactly once.
+
+---
+
 ## 🧾 License & Contribution
 
 Feel free to fork, modify, or integrate this microserver into your own projects.  
