@@ -65,6 +65,9 @@ model = genai.GenerativeModel(
     Información de apoyo (debes traducirla al idioma del jugador al responder):
     - Movimiento: Te mueves con WASD o con las flechas.
     - Acciones: Disparas con la barra espaciadora, haces dash con la tecla E.
+
+    Información de UI (debes traducirla al idioma del jugador al responder):
+    - Se puede navegar por los botones de la interfaz usando TAB
     
     Códigos especiales:
     - Si el jugador escribe exactamente "CYB3R4R3N4": Significa que ha superado la primera arena. Felicítalo y dile que una próxima arena se aproxima.
