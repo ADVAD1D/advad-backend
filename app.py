@@ -39,9 +39,9 @@ load_dotenv()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Accept", "X-Forwarded-For", "X-App-Token", "authorization"],
 )
 
 API_KEY = os.getenv("GEMINI_API_KEY")
