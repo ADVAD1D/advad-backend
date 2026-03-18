@@ -38,7 +38,13 @@ load_dotenv()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://www.angelus11.dev",
+        "https://angelus11.itch.io"
+    ],
+    # Itch.io a menudo carga los juegos web dentro de iframes en subdominios dinámicos.
+    # Esta expresión regular permite cualquier subdominio de itch.zone
+    allow_origin_regex=r"https://.*\.itch\.zone",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["Content-Type", "Accept", "X-Forwarded-For", "X-App-Token", "authorization"],
