@@ -136,7 +136,8 @@ async def ask_ai(request: Request, data: AskAIRequest, x_app_token: str = Header
         return JSONResponse(content={"response": response.text}, status_code=200) #OK
     
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500) #Internal Server Error
+        logger.error(f"Internal Server Error: {str(e)}")
+        return JSONResponse(content={"error": "Internal Server Error"}, status_code=500)
 
     #prueba local
     #Invoke-RestMethod -Uri "http://localhost:10000/askai" -Method Post -ContentType "application/json; charset=utf-8" -Body '{"prompt": "Señor, reporte de situación."}'
