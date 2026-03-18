@@ -108,6 +108,12 @@ class AskAIRequest(BaseModel):
 @limiter.limit("10/minute")
 async def ask_ai(request: Request, data: AskAIRequest, x_app_token: str = Header(default=None, alias="X-App-Token")):
     auth_header = x_app_token
+    
+    print(f"==============================")
+    print(f"Token Received from Web: '{auth_header}'")
+    print(f"Token Wait (dotenv) : '{APP_TOKEN}'")
+    print(f"==============================")
+    
     if auth_header != APP_TOKEN:
         return JSONResponse(content={
             "error": "Access denied"
