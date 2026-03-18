@@ -42,8 +42,8 @@ app.add_middleware(
         "https://www.angelus11.dev",
         "https://angelus11.itch.io"
     ],
-    # Itch.io a menudo carga los juegos web dentro de iframes en subdominios dinámicos.
-    # Esta expresión regular permite cualquier subdominio de itch.zone
+    # Itch.io often loads web games inside iframes on dynamic subdomains.
+    # This regular expression allows any itch.zone subdomain
     allow_origin_regex=r"https://.*\.itch\.zone",
     allow_credentials=False,
     allow_methods=["*"],
