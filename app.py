@@ -27,7 +27,7 @@ limiter = Limiter(key_func=get_real_ip, storage_uri="memory://")
 #the memory storage is for save the rate limit data
 app.state.limiter = limiter
 
-# app.url_map.strict_slashes = False (Nota: FastAPI maneja los slashes finales de forma distinta, pero mantengo el espacio del comentario)
+# app.url_map.strict_slashes = False (Note: FastAPI handles trailing slashes differently, but I'll keep the comment space)
 
 #logs
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +54,7 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 APP_TOKEN = os.getenv("APP_TOKEN")
 
 if not API_KEY:
-    # Esto es mejor imprimirlo en consola que lanzar raise error para que Render no crashee en el build
+    # This is better to print in the console than to raise an error so that Render does not crash during the build
     print("GEMINI_API_KEY environment variable not set")
 else:
     genai.configure(api_key=API_KEY)

@@ -31,6 +31,19 @@ Designed to be embedded in a Godot game so your project can **consume a language
 
 ---
 
+## 🛡️ Security Changes and Improvements
+
+Multiple security layers have been implemented to protect the server, the Gemini API quota, and mitigate vulnerabilities such as DDoS attacks or endpoint abuse:
+
+- **Anti-DDoS Rate Limiting:** Integration of `slowapi`, limiting requests to **10 per minute per IP** (`@limiter.limit("10/minute")`). It uses `X-Forwarded-For` to resolve real IPs behind proxies.
+- **Strict Origin Validation (CORS):** HTTP requests are restricted via `CORSMiddleware` exclusively to trusted domains (`angelus11.dev` and `itch.io` / `itch.zone` domains), blocking unauthorized access from third-party sites.
+- **Token Authentication (`X-App-Token`):** Mandatory validation of a secret token on the `/askai` endpoint before processing requests, returning `403 Forbidden` if invalid or missing.
+- **Prompt Injection (Jailbreaking) Mitigation:** User inputs are limited and encapsulated (`<<< {raw_prompt} >>>`). System instructions given to Gemini enforce a strict military persona and dictate absolute rejection of out-of-context commands.
+- **Secure Exception Handling:** Internal errors (`500`) are controlled via a generic `try-except` block to prevent leaking stack traces or internal information to the client.
+- **Structured Data Validation:** Strict use of `pydantic` (`BaseModel`) to validate incoming objects (such as `AskAIRequest`).
+
+---
+
 ## 🚀 Setup
 
 1. **Clone the repo**:
