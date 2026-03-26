@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 import os
 import logging
 import google.generativeai as genai
@@ -15,15 +16,8 @@ import uvicorn
 #Init flask app
 app = FastAPI()
 
-def get_real_ip(request: Request):
-    x_forwarded_for = request.headers.get("X-Forwarded-For")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0]
-    else:
-        return request.client.host
-
-#Rate limiter
-limiter = Limiter(key_func=get_real_ip, storage_uri="memory://")
+# Rate limiter using get_remote_address per slowapi recommendation
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 #the memory storage is for save the rate limit data
 app.state.limiter = limiter
 
@@ -108,7 +102,9 @@ async def home():
     return JSONResponse(content="Advad AI Server is running!", status_code=200) #OK
 
 class AskAIRequest(BaseModel):
-    prompt: str = ""
+    # Limit the number of characters to prevent mass submissions
+    # that could consume too many AI tokens.
+    prompt: str = Field(default="", max_length=300)
 
 @app.post("/askai")
 @limiter.limit("10/minute")
@@ -152,4 +148,5 @@ async def ask_ai(request: Request, data: AskAIRequest, x_app_token: str = Header
 #configuration for render    
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
+    # proxy_headers=True allows reading the correct IP if behind a proxy like Render
+    uvicorn.run("app:app", host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
