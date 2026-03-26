@@ -120,7 +120,7 @@ async def ask_ai(request: Request, data: AskAIRequest, x_app_token: str = Header
         return JSONResponse(content={"error": "GEMINI_API_KEY environment variable not set"}, status_code=500)
     
     try:
-        raw_prompt = data.prompt
+        raw_prompt = data.prompt.replace("<", "").replace(">", "")
 
         if not raw_prompt:
             return JSONResponse(content={"error": "Prompt is required"}, status_code=400) #Bad Request
