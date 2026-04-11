@@ -1,0 +1,115 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Advad Protocol | Admin Panel">
+  <main class="container">
+    <header class="hero">
+      <h1 class="glitch-title" data-text="COMMAND CENTER">COMMAND CENTER</h1>
+      <p class="subtitle">RESTRICTED ACCESS</p>
+    </header>
+
+    <div id="auth-section" style="text-align: center; margin-bottom: 2rem;">
+        <p style="margin-bottom: 1rem; color: var(--text-muted);">Enter authorization code to decrypt data.</p>
+        <input type="password" id="admin-token" placeholder="ADMIN TOKEN" />
+        <button id="login-btn">DECRYPT</button>
+    </div>
+
+    <section id="admin-dashboard" class="leaderboard" style="display: none;">
+      <div class="table-header">
+        <div class="col index">ID</div>
+        <div class="col name">SOLDIER</div>
+        <div class="col phase">PHASE</div>
+        <div class="col date">LOG DATE</div>
+        <div class="col actions">ACTIONS</div>
+      </div>
+      <div id="admin-body" class="table-body">
+         <div class="loading">Awaiting decription...</div>
+      </div>
+    </section>
+    
+    <nav>
+        <a href="/">> RETURN TO PUBLIC LEADERBOARD</a>
+    </nav>
+  </main>
+</Layout>
+
+<script>
+  let authToken = '';
+
+  document.getElementById('login-btn')?.addEventListener('click', async () => {
+      const tokenInput = document.getElementById('admin-token') as HTMLInputElement;
+      authToken = tokenInput.value;
+      if (!authToken) return;
+
+      await loadAdminData();
+  });
+
+  async function loadAdminData() {
+    const body = document.getElementById('admin-body')!;
+    body.innerHTML = '<div class="loading">Loading records...</div>';
+    document.getElementById('auth-section')!.style.display = 'none';
+    document.getElementById('admin-dashboard')!.style.display = 'block';
+
+    try {
+      const response = await fetch('http://localhost:10001/api/admin/all-pilots', {
+          headers: { 'X-Admin-Key': authToken }
+      });
+
+      if (response.status === 403) {
+           alert("ACCESS DENIED");
+           document.getElementById('auth-section')!.style.display = 'block';
+           document.getElementById('admin-dashboard')!.style.display = 'none';
+           return;
+      }
+
+      if (!response.ok) throw new Error("Failed to fetch data");
+      
+      const data = await response.json();
+      
+      if (data.length === 0) {
+        body.innerHTML = '<div class="empty">No records found.</div>';
+        return;
+      }
+
+      body.innerHTML = '';
+      data.forEach((entry: any, idx: number) => {
+        const row = document.createElement('div');
+        row.className = 'table-row';
+        
+        row.innerHTML = `
+          <div class="col index">#${idx + 1}</div>
+          <div class="col name">${entry.pilot}</div>
+          <div class="col phase">${entry.phase}</div>
+          <div class="col date">${entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'N/A'}</div>
+          <div class="col actions">
+             <button class="btn-danger" onclick="deleteRecord('${entry.pilot}')">PURGE</button>
+          </div>
+        `;
+        body.appendChild(row);
+      });
+      
+    } catch (e) {
+        body.innerHTML = '<div class="error">Data retrieval failed. Check authorization.</div>';
+    }
+  }
+
+  (window as any).deleteRecord = async function(pilotName: string) {
+      if(!confirm("Are you sure you want to purge this record?")) return;
+
+      try {
+          const response = await fetch(`http://localhost:10001/api/admin/delete-pilot/${pilotName}`, {
+              method: 'DELETE',
+              headers: { 'X-Admin-Key': authToken }
+          });
+
+          if(response.ok) {
+              loadAdminData(); // reload
+          } else {
+              alert("Failed to delete record.");
+          }
+      } catch(e) {
+          alert("Error executing purge.");
+      }
+  }
+</script>
