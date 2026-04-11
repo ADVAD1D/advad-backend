@@ -1,0 +1,21 @@
+{
+  "name": "advad-protocol-server",
+  "version": "1.0.0",
+  "description": "Advad Protocol - Servidor de IA Proxy y Dashboard de Leaderboard",
+  "scripts": {
+    "start:ai": "python app.py",
+    "start:api": "python leaderboard_api.py",
+    "start:ui": "cd leaderboard-ui && npm run dev",
+    "dev": "npx concurrently -c \"blue,green,magenta\" -n \"AI-SVC,API-DB,ASTRO\" \"npm run start:ai\" \"npm run start:api\" \"npm run start:ui\"",
+    "setup": "pip install -r requirements.txt && cd leaderboard-ui && npm install"
+  },
+  "keywords": [
+    "fastapi",
+    "astro",
+    "godot",
+    "leaderboard",
+    "gemini"
+  ],
+  "author": "",
+  "license": "ISC"
+}
