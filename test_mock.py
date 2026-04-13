@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 os.environ["APP_TOKEN"] = "test_super_secret_token"
 os.environ["GEMINI_API_KEY"] = "fake_test_api_key"
 
-from app import app
+from main import app
 
 #instancia del cliente de pruebas de fastapi
 client = TestClient(app)
