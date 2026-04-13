@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  ai-server:
+    build: .
+    ports:
+      - "10000:10000"
+    env_file:
+      - .env
+    environment:
+      - PORT=10000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - APP_TOKEN=${APP_TOKEN}
+    command:
+      - gunicorn
+      - app:app
+      - -w
+      - "2"
+      - -k
+      - uvicorn.workers.UvicornWorker
+      - -b
+      - 0.0.0.0:10000
+      - --timeout
+      - "120"
+    restart: unless-stopped
+
+  leaderboard:
+    build: .
+    ports:
+      - "10001:10001"
+    env_file:
+      - .env
+    environment:
+      - LEADERBOARD_PORT=10001
+      - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY}
+    volumes:
+      - leaderboard_data:/app/data
+    command:
+      - gunicorn
+      - leaderboard_api:app
+      - -w
+      - "2"
+      - -k
+      - uvicorn.workers.UvicornWorker
+      - -b
+      - 0.0.0.0:10001
+      - --timeout
+      - "120"
+    restart: unless-stopped
+
+volumes:
+  leaderboard_data:
+    driver: local

@@ -193,9 +193,54 @@ uvicorn leaderboard_api:app --host 0.0.0.0 --port 10001
 
 You can build a Docker image to run this server consistently and deploy it to providers that accept container images (e.g. Render.com, Docker Hub).
 
-- **Dockerfile**: the repository already includes `DockerFile` at the project root for the AI Server.
+- **Dockerfile**: the repository already includes `Dockerfile` at the project root for the AI Server.
+- **docker-compose.yml**: run both services together in production mode.
+
+```bash
+docker compose up --build
+```
+
+- **render.yaml**: use Render to deploy both services from the same repo with Docker.
+
+```bash
+git add render.yaml
+git commit -m "Add Render Docker deployment config"
+git push
+```
+
+Make sure `.env` contains at least:
+- `GEMINI_API_KEY`
+- `APP_TOKEN`
+- `ADMIN_SECRET_KEY`
 
 ---
+
+## 🚀 Deploy en Render
+
+Si ya tienes el repo conectado en Render y quieres usar Docker:
+
+1. En tu servicio de Render, cambia el ambiente a `Docker`.
+2. Usa `Dockerfile` como archivo de build.
+3. Pon el `Start Command` a:
+
+   - Para el AI server:
+     ```bash
+gunicorn app:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --timeout 120
+```
+
+   - Para el leaderboard:
+     ```bash
+gunicorn leaderboard_api:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --timeout 120
+```
+
+4. Configura las variables de entorno en Render:
+   - `GEMINI_API_KEY`
+   - `APP_TOKEN`
+   - `ADMIN_SECRET_KEY`
+
+5. Si usas `render.yaml`, Render creará ambos servicios automáticamente cuando detecte el archivo.
+
+> Nota: el `docker-compose.yml` es para local; Render usa `Dockerfile` o `render.yaml`.
 
 ## 📝 Customization
 
