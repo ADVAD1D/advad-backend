@@ -16,7 +16,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://www.angelus11.dev",
-        "https://angelus11.itch.io"
+        "https://angelus11.itch.io",
+        "https://advad1d.github.io"
     ],
     allow_origin_regex=r"https://.*\.itch\.zone",
     allow_credentials=False,
