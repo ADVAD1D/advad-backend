@@ -1,16 +1,8 @@
 services:
   - type: web
-    name: advad-ai-server
+    name: advad-backend
     env: docker
     plan: starter
     dockerfilePath: Dockerfile
     branch: main
     startCommand: gunicorn app:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --timeout 120
-
-  - type: web
-    name: advad-leaderboard
-    env: docker
-    plan: starter
-    dockerfilePath: Dockerfile
-    branch: main
-    startCommand: gunicorn leaderboard_api:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --timeout 120
