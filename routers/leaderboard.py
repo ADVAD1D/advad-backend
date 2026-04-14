@@ -43,14 +43,42 @@ class PhaseSubmit(BaseModel):
 class PhaseUpdate(BaseModel):
     new_phase: int
 
+def normalize_pilot_name(name: str) -> str:
+    if not name or not name.strip():
+        return "Pilot"
+    return name.strip()
+
+def pilot_name_exists(cursor, pilot_name: str) -> bool:
+    cursor.execute("SELECT 1 FROM phase_records WHERE pilot_name = ? LIMIT 1", (pilot_name,))
+    return cursor.fetchone() is not None
+
+@router.get("/check-name/{pilot_name}")
+def check_pilot_name(pilot_name: str):
+    normalized_name = normalize_pilot_name(pilot_name)
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        exists = pilot_name_exists(cursor, normalized_name)
+        conn.close()
+        return {
+            "available": not exists,
+            "pilot_name": normalized_name,
+            "message": f"El nombre '{normalized_name}' {'está disponible' if not exists else 'ya está ocupado'}."
+        }
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error en la base de datos.")
+
 @router.post("/record-phase")
 def record_phase(data: PhaseSubmit):
-    if not data.pilot_name or not data.pilot_name.strip():
-        data.pilot_name = "Pilot"
+    data.pilot_name = normalize_pilot_name(data.pilot_name)
 
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        if pilot_name_exists(cursor, data.pilot_name):
+            conn.close()
+            raise HTTPException(status_code=409, detail=f"El nombre '{data.pilot_name}' ya está ocupado.")
+
         cursor.execute(
             "INSERT INTO phase_records (pilot_name, last_phase) VALUES (?, ?)",
             (data.pilot_name, data.last_phase)
@@ -61,6 +89,8 @@ def record_phase(data: PhaseSubmit):
             "status": "success",
             "message": f"Phase {data.last_phase} recorded for {data.pilot_name}."
         }
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error in the database vault.")
 

@@ -101,6 +101,13 @@ Multiple security layers have been implemented to protect the server, the Gemini
 ### `POST /api/record-phase`
 Open (requires body data) endpoint to submit a player's reached phase.
 - **Body**: `{"pilot_name": "Ghost", "last_phase": 15}`
+- **Responses**:
+  - `200` → score recorded successfully
+  - `409` → the pilot name is already occupied in the leaderboard database
+
+### `GET /api/check-name/{pilot_name}`
+Checks whether a pilot name is available.
+- **Response**: `{"available": true, "pilot_name": "Ghost", "message": "El nombre 'Ghost' está disponible."}`
 
 ### `GET /api/top-pilots`
 Public endpoint returning the top 10 grouped high scrores.
