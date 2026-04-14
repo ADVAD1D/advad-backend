@@ -1,6 +1,7 @@
 import os
 import sqlite3
-from fastapi import APIRouter, HTTPException, Security, Depends
+from fastapi import APIRouter, HTTPException, Security, Depends, Request
+from pydantic import BaseModel, Field
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -28,6 +29,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pilot_name TEXT NOT NULL,
             last_phase INTEGER NOT NULL,
+            device_id TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -37,11 +39,11 @@ def init_db():
 init_db()
 
 class PhaseSubmit(BaseModel):
-    pilot_name: str
-    last_phase: int
+    pilot_name: str = Field(..., max_length=15)
+    last_phase: int = Field(..., ge=1)
 
 class PhaseUpdate(BaseModel):
-    new_phase: int
+    new_phase: int = Field(..., ge=1)
 
 def normalize_pilot_name(name: str) -> str:
     if not name or not name.strip():
@@ -53,46 +55,92 @@ def pilot_name_exists(cursor, pilot_name: str) -> bool:
     return cursor.fetchone() is not None
 
 @router.get("/check-name/{pilot_name}")
-def check_pilot_name(pilot_name: str):
+def check_pilot_name(pilot_name: str, request: Request):
+    dev_id = request.headers.get("X-Device-ID")
     normalized_name = normalize_pilot_name(pilot_name)
+    
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        exists = pilot_name_exists(cursor, normalized_name)
+        
+        cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Pilot' LIMIT 1", (dev_id,))
+        my_existing_name = cursor.fetchone()
+        
+        if my_existing_name and my_existing_name[0] != normalized_name and normalized_name != "Pilot":
+            conn.close()
+            return {"available": False, "message": f"INFRACCIÓN: Su nave ya está registrada como '{my_existing_name[0]}'."}
+
+        cursor.execute("SELECT device_id FROM phase_records WHERE pilot_name = ? LIMIT 1", (normalized_name,))
+        row = cursor.fetchone()
         conn.close()
-        return {
-            "available": not exists,
-            "pilot_name": normalized_name,
-            "message": f"El nombre '{normalized_name}' {'está disponible' if not exists else 'ya está ocupado'}."
-        }
+
+        if row is None:
+            return {"available": True, "message": "Nombre disponible."}
+        elif row[0] == dev_id or normalized_name == "Pilot":
+            return {"available": True, "message": f"¡Bienvenido de vuelta, {normalized_name}!"}
+        else:
+            return {"available": False, "message": "Ese indicativo ya pertenece a otro piloto."}
+            
     except Exception:
         raise HTTPException(status_code=500, detail="Error en la base de datos.")
+    
+@router.get("/whoami")
+def get_my_identity(request: Request):
+    dev_id = request.headers.get("X-Device-ID")
+    if not dev_id:
+        return {"pilot_name": None}
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Pilot' LIMIT 1", 
+            (dev_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {"pilot_name": row[0]}
+        return {"pilot_name": None} 
+        
+    except Exception:
+        return {"pilot_name": None}
 
 @router.post("/record-phase")
-def record_phase(data: PhaseSubmit):
+def record_phase(data: PhaseSubmit, request: Request):
+    dev_id = request.headers.get("X-Device-ID")
+    if not dev_id:
+        raise HTTPException(status_code=400, detail="Missing Device Identity.")
+
     data.pilot_name = normalize_pilot_name(data.pilot_name)
 
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        if pilot_name_exists(cursor, data.pilot_name):
-            conn.close()
-            raise HTTPException(status_code=409, detail=f"El nombre '{data.pilot_name}' ya está ocupado.")
+        
+        if data.pilot_name != "Player":
+            cursor.execute(
+                "SELECT device_id FROM phase_records WHERE pilot_name = ? LIMIT 1", 
+                (data.pilot_name,)
+            )
+            row = cursor.fetchone()
+            
+            if row and row[0] != dev_id:
+                conn.close()
+                raise HTTPException(status_code=409, detail="This name belongs to another pilot.")
 
         cursor.execute(
-            "INSERT INTO phase_records (pilot_name, last_phase) VALUES (?, ?)",
-            (data.pilot_name, data.last_phase)
+            "INSERT INTO phase_records (pilot_name, last_phase, device_id) VALUES (?, ?, ?)",
+            (data.pilot_name, data.last_phase, dev_id)
         )
         conn.commit()
         conn.close()
-        return {
-            "status": "success",
-            "message": f"Phase {data.last_phase} recorded for {data.pilot_name}."
-        }
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error in the database vault.")
+        return {"status": "success"}
+        
+    except HTTPException: raise
+    except Exception: raise HTTPException(status_code=500, detail="DB Error.")
 
 @router.get("/top-pilots")
 def get_top_pilots():
