@@ -22,7 +22,7 @@ app.add_middleware(
     allow_origin_regex=r"https://.*\.itch\.zone",
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "Accept", "X-Forwarded-For", "X-App-Token", "authorization"],
+    allow_headers=["Content-Type", "Accept", "X-Forwarded-For", "X-App-Token", "authorization", "X-Admin-Key"],
 )
 
 @app.exception_handler(RateLimitExceeded)
