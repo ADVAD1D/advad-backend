@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from fastapi import APIRouter, HTTPException, Security, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -42,12 +42,19 @@ class PhaseSubmit(BaseModel):
     pilot_name: str = Field(..., max_length=15)
     last_phase: int = Field(..., ge=1)
 
+    @field_validator("pilot_name")
+    def check_empty_name(cls, v):
+        name = v.strip()
+        if not name:
+            return "Player"
+        return name
+
 class PhaseUpdate(BaseModel):
     new_phase: int = Field(..., ge=1)
 
 def normalize_pilot_name(name: str) -> str:
     if not name or not name.strip():
-        return "Pilot"
+        return "Player"
     return name.strip()
 
 def pilot_name_exists(cursor, pilot_name: str) -> bool:
@@ -58,15 +65,18 @@ def pilot_name_exists(cursor, pilot_name: str) -> bool:
 def check_pilot_name(pilot_name: str, request: Request):
     dev_id = request.headers.get("X-Device-ID")
     normalized_name = normalize_pilot_name(pilot_name)
+
+    if normalized_name.lower() == "player":
+        return {"available": False, "message": "Este indicativo está reservado por el sistema."}
     
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Pilot' LIMIT 1", (dev_id,))
+        cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Player' LIMIT 1", (dev_id,))
         my_existing_name = cursor.fetchone()
         
-        if my_existing_name and my_existing_name[0] != normalized_name and normalized_name != "Pilot":
+        if my_existing_name and my_existing_name[0] != normalized_name and normalized_name != "Player":
             conn.close()
             return {"available": False, "message": f"INFRACCIÓN: Su nave ya está registrada como '{my_existing_name[0]}'."}
 
@@ -76,7 +86,7 @@ def check_pilot_name(pilot_name: str, request: Request):
 
         if row is None:
             return {"available": True, "message": "Nombre disponible."}
-        elif row[0] == dev_id or normalized_name == "Pilot":
+        elif row[0] == dev_id or normalized_name == "Player":
             return {"available": True, "message": f"¡Bienvenido de vuelta, {normalized_name}!"}
         else:
             return {"available": False, "message": "Ese indicativo ya pertenece a otro piloto."}
@@ -95,7 +105,7 @@ def get_my_identity(request: Request):
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Pilot' LIMIT 1", 
+            "SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Player' LIMIT 1", 
             (dev_id,)
         )
         row = cursor.fetchone()
