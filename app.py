@@ -9,7 +9,7 @@ from routers.leaderboard import router as leaderboard_router
 
 load_dotenv()
 
-app = FastAPI(title="Advad API Server")
+app = FastAPI(title="Advad API Server", docs_url="/api/advad-ai/docs", redoc_url="/api/advad-ai/redoc", openapi_url="/api/advad-ai/openapi.json")
 app.state.limiter = limiter
 
 app.add_middleware(
@@ -35,5 +35,5 @@ async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
         }
     )
 
-app.include_router(ai_router)
-app.include_router(leaderboard_router, prefix="/api")
+app.include_router(ai_router, prefix="/api/advad-ai")
+app.include_router(leaderboard_router, prefix="/api/advad-ai")
