@@ -9,7 +9,14 @@ from routers.leaderboard import router as leaderboard_router
 
 load_dotenv()
 
-app = FastAPI(title="Advad API Server", docs_url="/api/advad-ai/docs", redoc_url="/api/advad-ai/redoc", openapi_url="/api/advad-ai/openapi.json")
+ENVIROMENT = os.getenv("ENVIRONMENT", "production")
+is_dev = ENVIROMENT == "development"
+
+app = FastAPI(title="Advad API Server",
+            docs_url="/api/advad-ai/docs" if is_dev else None,
+            redoc_url="/api/advad-ai/redoc" if is_dev else None,
+            openapi_url="/api/advad-ai/openapi.json" if is_dev else None)
+
 app.state.limiter = limiter
 
 app.add_middleware(
