@@ -3,17 +3,9 @@ from app.schemas.leaderboard import PhaseSubmit, PhaseUpdate
 from app.dependencies.auth import verify_admin
 from fastapi import APIRouter, HTTPException, Depends, Request
 
-
-
-
 from app.config.settings import settings
 router = APIRouter(tags=["Leaderboard"])
-
-
 from app.database.connection import get_db_connection
-
-
-
 
 def normalize_pilot_name(name: str) -> str:
     if not name or not name.strip():
