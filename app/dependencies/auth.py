@@ -2,8 +2,8 @@ from fastapi import HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 from app.config.settings import settings
 
-api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
-app_token_header = APIKeyHeader(name="X-App-Token", auto_error=False)
+api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False, scheme_name="AdminKeyHeader")
+app_token_header = APIKeyHeader(name="X-App-Token", auto_error=False, scheme_name="AppTokenHeader")
 
 async def verify_admin(api_key: str = Security(api_key_header)):
     if api_key == settings.ADMIN_SECRET_KEY:
