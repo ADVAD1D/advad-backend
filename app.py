@@ -23,6 +23,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://www.angelus11.dev",
+        "https://html-classic.itch.zone",
+        "http://localhost:8060",
         "https://angelus11.itch.io",
         "https://advad1d.github.io"
     ],
