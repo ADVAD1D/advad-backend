@@ -1,56 +1,19 @@
 import os
-import sqlite3
-from fastapi import APIRouter, HTTPException, Security, Depends, Request
-from pydantic import BaseModel, Field, field_validator
-from fastapi.security.api_key import APIKeyHeader
-from pydantic import BaseModel
-from dotenv import load_dotenv
+from app.schemas.leaderboard import PhaseSubmit, PhaseUpdate
+from app.dependencies.auth import verify_admin
+from fastapi import APIRouter, HTTPException, Depends, Request
 
-load_dotenv()
 
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
-api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
+
+
+from app.config.settings import settings
 router = APIRouter(tags=["Leaderboard"])
 
-async def verify_admin(api_key: str = Security(api_key_header)):
-    if api_key == ADMIN_SECRET_KEY:
-        return api_key
-    raise HTTPException(status_code=403, detail="Access denied, credentials invalid or missing.")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "phases_log.db")
-DB_PATH = os.path.abspath(DB_PATH)
+from app.database.connection import get_db_connection
 
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS phase_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            pilot_name TEXT NOT NULL,
-            last_phase INTEGER NOT NULL,
-            device_id TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
-init_db()
 
-class PhaseSubmit(BaseModel):
-    pilot_name: str = Field(..., max_length=15)
-    last_phase: int = Field(..., ge=1)
-
-    @field_validator("pilot_name")
-    def check_empty_name(cls, v):
-        name = v.strip()
-        if not name:
-            return "Player"
-        return name
-
-class PhaseUpdate(BaseModel):
-    new_phase: int = Field(..., ge=1)
 
 def normalize_pilot_name(name: str) -> str:
     if not name or not name.strip():
@@ -70,7 +33,7 @@ def check_pilot_name(pilot_name: str, request: Request):
         return {"available": False, "message": "Este indicativo está reservado por el sistema."}
     
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Player' LIMIT 1", (dev_id,))
@@ -101,7 +64,7 @@ def get_my_identity(request: Request):
         return {"pilot_name": None}
         
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -127,7 +90,7 @@ def record_phase(data: PhaseSubmit, request: Request):
     data.pilot_name = normalize_pilot_name(data.pilot_name)
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         if data.pilot_name != "Player":
@@ -155,7 +118,7 @@ def record_phase(data: PhaseSubmit, request: Request):
 @router.get("/top-pilots")
 def get_top_pilots():
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
             SELECT p1.pilot_name, p1.last_phase as max_phase, MIN(p1.timestamp) as timestamp
@@ -178,7 +141,7 @@ def get_top_pilots():
 @router.put("/admin/update-phase/{pilot_name}")
 def update_pilot_phase(pilot_name: str, data: PhaseUpdate, api_key: str = Depends(verify_admin)):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE phase_records SET last_phase = ? WHERE pilot_name = ?",
@@ -203,7 +166,7 @@ def update_pilot_phase(pilot_name: str, data: PhaseUpdate, api_key: str = Depend
 @router.delete("/admin/delete-pilot/{pilot_name}")
 def ban_pilot(pilot_name: str, api_key: str = Depends(verify_admin)):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM phase_records WHERE pilot_name = ?", (pilot_name,))
         filas_afectadas = cursor.rowcount
@@ -222,7 +185,7 @@ def ban_pilot(pilot_name: str, api_key: str = Depends(verify_admin)):
 @router.get("/admin/all-pilots")
 def get_all_pilots(api_key: str = Depends(verify_admin)):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
             SELECT p1.pilot_name, p1.last_phase as max_phase, MIN(p1.timestamp) as timestamp

@@ -3,11 +3,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
-from dotenv import load_dotenv
-from routers.ai import router as ai_router, limiter
-from routers.leaderboard import router as leaderboard_router
-
-load_dotenv()
+from app.routers.ai import router as ai_router, limiter
+from app.routers.leaderboard import router as leaderboard_router
 
 app = FastAPI(title="Advad API Server", docs_url="/api/advad-ai/docs", redoc_url="/api/advad-ai/redoc", openapi_url="/api/advad-ai/openapi.json")
 app.state.limiter = limiter
