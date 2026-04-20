@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, Security
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -21,7 +21,7 @@ async def home():
 
 @router.post("/askai")
 @limiter.limit("10/minute")
-async def ask_ai(request: Request, data: AskAIRequest, api_key: str = Depends(verify_app_token)):
+async def ask_ai(request: Request, data: AskAIRequest, api_key: str = Security(verify_app_token)):
 
     if not settings.GEMINI_API_KEY:
         return JSONResponse(content={"error": "GEMINI_API_KEY not set"}, status_code=500)
@@ -41,7 +41,7 @@ async def ask_ai(request: Request, data: AskAIRequest, api_key: str = Depends(ve
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model="gemini-2.5-flash",
             contents=safe_prompt,
             config={
                 "system_instruction": """
@@ -64,10 +64,16 @@ async def ask_ai(request: Request, data: AskAIRequest, api_key: str = Depends(ve
     """,
                 "max_output_tokens": 2048,
                 "temperature": 0.3,
-                "safety_settings": {
-                    "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
-                    "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
-                }
+                "safety_settings": [
+                    {
+                        "category": "HARM_CATEGORY_HARASSMENT",
+                        "threshold": "BLOCK_NONE",
+                    },
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_NONE",
+                    }
+                ]
             }
         )
         return JSONResponse(content={"response": response.text}, status_code=200)

@@ -24,4 +24,4 @@ RUN addgroup --system app && adduser --system --ingroup app app && \
 USER app
 
 EXPOSE 10000
-CMD ["gunicorn", "app:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:10000", "--timeout", "120"]
+CMD ["gunicorn", "app.main:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:10000", "--timeout", "120"]
