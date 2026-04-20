@@ -2,6 +2,7 @@ fastapi
 slowapi
 pydantic
 google-generativeai
+google-genai
 uvicorn
 gunicorn
 python-dotenv

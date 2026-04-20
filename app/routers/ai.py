@@ -1,11 +1,12 @@
 import logging
-from fastapi import APIRouter, Request, Header
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 import google.genai as genai
 from app.config.settings import settings
 from app.schemas.ai import AskAIRequest
+from app.dependencies.auth import verify_app_token
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,7 @@ async def home():
 
 @router.post("/askai")
 @limiter.limit("10/minute")
-async def ask_ai(request: Request, data: AskAIRequest, x_app_token: str = Header(default=None, alias="X-App-Token")):
-    if x_app_token != settings.APP_TOKEN:
-        return JSONResponse(content={"error": "Access denied"}, status_code=403)
+async def ask_ai(request: Request, data: AskAIRequest, api_key: str = Depends(verify_app_token)):
 
     if not settings.GEMINI_API_KEY:
         return JSONResponse(content={"error": "GEMINI_API_KEY not set"}, status_code=500)
