@@ -13,7 +13,7 @@ def normalize_pilot_name(name: str) -> str:
     return name.strip()
 
 def pilot_name_exists(cursor, pilot_name: str) -> bool:
-    cursor.execute("SELECT 1 FROM phase_records WHERE pilot_name = ? LIMIT 1", (pilot_name,))
+    cursor.execute("SELECT 1 FROM phase_records WHERE pilot_name = %s LIMIT 1", (pilot_name,))
     return cursor.fetchone() is not None
 
 @router.get("/check-name/{pilot_name}")
@@ -28,14 +28,14 @@ def check_pilot_name(pilot_name: str, request: Request):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Player' LIMIT 1", (dev_id,))
+        cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = %s AND pilot_name != 'Player' LIMIT 1", (dev_id,))
         my_existing_name = cursor.fetchone()
         
         if my_existing_name and my_existing_name[0] != normalized_name and normalized_name != "Player":
             conn.close()
             return {"available": False, "message": f"INFRACCIÓN: Su nave ya está registrada como '{my_existing_name[0]}'."}
 
-        cursor.execute("SELECT device_id FROM phase_records WHERE pilot_name = ? LIMIT 1", (normalized_name,))
+        cursor.execute("SELECT device_id FROM phase_records WHERE pilot_name = %s LIMIT 1", (normalized_name,))
         row = cursor.fetchone()
         conn.close()
 
@@ -60,7 +60,7 @@ def get_my_identity(request: Request):
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT pilot_name FROM phase_records WHERE device_id = ? AND pilot_name != 'Player' LIMIT 1", 
+            "SELECT pilot_name FROM phase_records WHERE device_id = %s AND pilot_name != 'Player' LIMIT 1", 
             (dev_id,)
         )
         row = cursor.fetchone()
@@ -87,7 +87,7 @@ def record_phase(data: PhaseSubmit, request: Request):
         
         if data.pilot_name != "Player":
             cursor.execute(
-                "SELECT device_id FROM phase_records WHERE pilot_name = ? LIMIT 1", 
+                "SELECT device_id FROM phase_records WHERE pilot_name = %s LIMIT 1", 
                 (data.pilot_name,)
             )
             row = cursor.fetchone()
@@ -97,7 +97,7 @@ def record_phase(data: PhaseSubmit, request: Request):
                 raise HTTPException(status_code=409, detail="This name belongs to another pilot.")
 
         cursor.execute(
-            "INSERT INTO phase_records (pilot_name, last_phase, device_id) VALUES (?, ?, ?)",
+            "INSERT INTO phase_records (pilot_name, last_phase, device_id) VALUES (%s, %s, %s)",
             (data.pilot_name, data.last_phase, dev_id)
         )
         conn.commit()
@@ -136,7 +136,7 @@ def update_pilot_phase(pilot_name: str, data: PhaseUpdate, api_key: str = Depend
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE phase_records SET last_phase = ? WHERE pilot_name = ?",
+            "UPDATE phase_records SET last_phase = %s WHERE pilot_name = %s",
             (data.new_phase, pilot_name)
         )
         filas_afectadas = cursor.rowcount
@@ -160,7 +160,7 @@ def ban_pilot(pilot_name: str, api_key: str = Depends(verify_admin)):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM phase_records WHERE pilot_name = ?", (pilot_name,))
+        cursor.execute("DELETE FROM phase_records WHERE pilot_name = %s", (pilot_name,))
         filas_afectadas = cursor.rowcount
         conn.commit()
         conn.close()
