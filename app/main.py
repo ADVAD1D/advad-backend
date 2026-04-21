@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
-from app.routers.ai import router as ai_router, limiter
+from app.routers.chatai import router as ai_router, limiter
 from app.routers.leaderboard import router as leaderboard_router
 
 ENVIROMENT = os.getenv("ENVIRONMENT", "production")
