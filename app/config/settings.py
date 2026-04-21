@@ -9,5 +9,6 @@ class Settings:
     ADMIN_SECRET_KEY: str = os.getenv("ADMIN_SECRET_KEY")
     PORT: int = int(os.getenv("PORT", 10000))
     DATABASE_URL: str = os.getenv("DATABASE_URL")
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
 
 settings = Settings()
