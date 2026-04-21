@@ -5,9 +5,9 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from app.routers.chatai import router as ai_router, limiter
 from app.routers.leaderboard import router as leaderboard_router
+from app.config.settings import settings
 
-ENVIROMENT = os.getenv("ENVIRONMENT", "production")
-is_dev = ENVIROMENT == "development"
+is_dev = settings.ENVIRONMENT == "development"
 
 app = FastAPI(title="Advad API Server",
             docs_url="/api/advad-ai/docs" if is_dev else None,
