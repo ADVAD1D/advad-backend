@@ -6,3 +6,4 @@ google-genai
 uvicorn
 gunicorn
 python-dotenv
+psycopg2-binary
