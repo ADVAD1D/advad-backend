@@ -1,6 +1,9 @@
 .env
+.env.enc
 venv/
 __pycache__/
+.pytest_cache/
 *.pyc
 data/
 .venv/
+secret.key
