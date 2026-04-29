@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Advad Protocol - Servidor de IA Proxy y Base de Datos del Leaderboard",
   "scripts": {
-    "start:ai": "python app.py",
+    "start:ai": "python main.py",
     "start:api": "python leaderboard_api.py",
     "dev": "npx concurrently -c \"blue,green\" -n \"AI-SVC,API-DB\" \"npm run start:ai\" \"npm run start:api\"",
     "setup": "pip install -r requirements.txt"
@@ -15,5 +15,5 @@
     "gemini"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "MIT"
 }
