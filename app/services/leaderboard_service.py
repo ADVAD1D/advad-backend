@@ -1,6 +1,8 @@
 from fastapi import HTTPException
-from app.database.connection import get_db_connection
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.schemas.leaderboard import PhaseSubmit, PhaseUpdate
+from app.models.phase_record import PhaseRecord
 
 class LeaderboardService:
     @staticmethod
@@ -10,135 +12,144 @@ class LeaderboardService:
         return name.strip()
 
     @staticmethod
-    def pilot_name_exists(cursor, pilot_name: str) -> bool:
-        cursor.execute("SELECT 1 FROM phase_records WHERE pilot_name = %s LIMIT 1", (pilot_name,))
-        return cursor.fetchone() is not None
+    def pilot_name_exists(db: Session, pilot_name: str) -> bool:
+        return db.query(PhaseRecord).filter(PhaseRecord.pilot_name == pilot_name).first() is not None
 
     @staticmethod
-    def check_pilot_name(pilot_name: str, dev_id: str):
+    def check_pilot_name(db: Session, pilot_name: str, dev_id: str):
         normalized_name = LeaderboardService.normalize_pilot_name(pilot_name)
 
         if normalized_name.lower() == "player":
             return {"available": False, "message": "Este indicativo está reservado por el sistema."}
         
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
+            my_existing_record = db.query(PhaseRecord).filter(
+                PhaseRecord.device_id == dev_id,
+                PhaseRecord.pilot_name != "Player"
+            ).first()
             
-            cursor.execute("SELECT pilot_name FROM phase_records WHERE device_id = %s AND pilot_name != 'Player' LIMIT 1", (dev_id,))
-            my_existing_name = cursor.fetchone()
-            
-            if my_existing_name and my_existing_name[0] != normalized_name and normalized_name != "Player":
-                conn.close()
-                return {"available": False, "message": f"INFRACCIÓN: Su nave ya está registrada como '{my_existing_name[0]}'."}
+            if my_existing_record and my_existing_record.pilot_name != normalized_name and normalized_name != "Player":
+                return {"available": False, "message": f"INFRACCIÓN: Su nave ya está registrada como '{my_existing_record.pilot_name}'."}
 
-            cursor.execute("SELECT device_id FROM phase_records WHERE pilot_name = %s LIMIT 1", (normalized_name,))
-            row = cursor.fetchone()
-            conn.close()
+            record_for_name = db.query(PhaseRecord).filter(PhaseRecord.pilot_name == normalized_name).first()
 
-            if row is None:
+            if record_for_name is None:
                 return {"available": True, "message": "Nombre disponible."}
-            elif row[0] == dev_id or normalized_name == "Player":
+            elif record_for_name.device_id == dev_id or normalized_name == "Player":
                 return {"available": True, "message": f"¡Bienvenido de vuelta, {normalized_name}!"}
             else:
                 return {"available": False, "message": "Ese indicativo ya pertenece a otro piloto."}
                 
-        except Exception:
+        except Exception as e:
+            print(f"Error check_pilot_name: {e}")
             raise HTTPException(status_code=500, detail="Error en la base de datos.")
 
     @staticmethod
-    def get_my_identity(dev_id: str):
+    def get_my_identity(db: Session, dev_id: str):
         if not dev_id:
             return {"pilot_name": None}
             
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute(
-                "SELECT pilot_name FROM phase_records WHERE device_id = %s AND pilot_name != 'Player' LIMIT 1", 
-                (dev_id,)
-            )
-            row = cursor.fetchone()
-            conn.close()
+            row = db.query(PhaseRecord).filter(
+                PhaseRecord.device_id == dev_id,
+                PhaseRecord.pilot_name != "Player"
+            ).first()
             
             if row:
-                return {"pilot_name": row[0]}
+                return {"pilot_name": row.pilot_name}
             return {"pilot_name": None} 
             
         except Exception:
             return {"pilot_name": None}
 
     @staticmethod
-    def record_phase(data: PhaseSubmit, dev_id: str):
+    def record_phase(db: Session, data: PhaseSubmit, dev_id: str):
         if not dev_id:
             raise HTTPException(status_code=400, detail="Missing Device Identity.")
 
         data.pilot_name = LeaderboardService.normalize_pilot_name(data.pilot_name)
 
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
             if data.pilot_name != "Player":
-                cursor.execute(
-                    "SELECT device_id FROM phase_records WHERE pilot_name = %s LIMIT 1", 
-                    (data.pilot_name,)
-                )
-                row = cursor.fetchone()
+                row = db.query(PhaseRecord).filter(PhaseRecord.pilot_name == data.pilot_name).first()
                 
-                if row and row[0] != dev_id:
-                    conn.close()
+                if row and row.device_id != dev_id:
                     raise HTTPException(status_code=409, detail="This name belongs to another pilot.")
 
-            cursor.execute(
-                "INSERT INTO phase_records (pilot_name, last_phase, device_id) VALUES (%s, %s, %s)",
-                (data.pilot_name, data.last_phase, dev_id)
+            new_record = PhaseRecord(
+                pilot_name=data.pilot_name,
+                last_phase=data.last_phase,
+                device_id=dev_id
             )
-            conn.commit()
-            conn.close()
+            db.add(new_record)
+            db.commit()
             return {"status": "success"}
             
         except HTTPException: raise
-        except Exception: raise HTTPException(status_code=500, detail="DB Error.")
+        except Exception as e:
+            db.rollback()
+            print(f"Error record_phase: {e}")
+            raise HTTPException(status_code=500, detail="DB Error.")
 
     @staticmethod
-    def get_top_pilots():
+    def get_top_pilots(db: Session):
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT p1.pilot_name, p1.last_phase as max_phase, MIN(p1.timestamp) as timestamp
-                FROM phase_records p1
-                INNER JOIN (
-                    SELECT pilot_name, MAX(last_phase) as max_phase
-                    FROM phase_records
-                    GROUP BY pilot_name
-                ) p2 ON p1.pilot_name = p2.pilot_name AND p1.last_phase = p2.max_phase
-                GROUP BY p1.pilot_name, p1.last_phase
-                ORDER BY max_phase DESC, timestamp ASC
-                LIMIT 10
-            ''')
-            rows = cursor.fetchall()
-            conn.close()
-            return [{"pilot": row[0], "phase": row[1], "timestamp": row[2]} for row in rows]
-        except Exception:
+            # We want the max phase for each pilot, and for ties, the earliest timestamp
+            # In PostgreSQL this is often done with DISTINCT ON or subqueries.
+            # Using subqueries in SQLAlchemy:
+            # subq = session.query(
+            #     PhaseRecord.pilot_name,
+            #     func.max(PhaseRecord.last_phase).label('max_phase')
+            # ).group_by(PhaseRecord.pilot_name).subquery()
+            # 
+            # q = session.query(
+            #     PhaseRecord.pilot_name,
+            #     PhaseRecord.last_phase,
+            #     func.min(PhaseRecord.timestamp).label('timestamp')
+            # ).join(
+            #     subq,
+            #     (PhaseRecord.pilot_name == subq.c.pilot_name) &
+            #     (PhaseRecord.last_phase == subq.c.max_phase)
+            # ).group_by(
+            #     PhaseRecord.pilot_name, PhaseRecord.last_phase
+            # ).order_by(
+            #     PhaseRecord.last_phase.desc(),
+            #     func.min(PhaseRecord.timestamp).asc()
+            # ).limit(10)
+
+            subq = db.query(
+                PhaseRecord.pilot_name,
+                func.max(PhaseRecord.last_phase).label('max_phase')
+            ).group_by(PhaseRecord.pilot_name).subquery()
+
+            rows = db.query(
+                PhaseRecord.pilot_name,
+                PhaseRecord.last_phase,
+                func.min(PhaseRecord.timestamp).label('timestamp')
+            ).join(
+                subq,
+                (PhaseRecord.pilot_name == subq.c.pilot_name) &
+                (PhaseRecord.last_phase == subq.c.max_phase)
+            ).group_by(
+                PhaseRecord.pilot_name,
+                PhaseRecord.last_phase
+            ).order_by(
+                PhaseRecord.last_phase.desc(),
+                func.min(PhaseRecord.timestamp).asc()
+            ).limit(10).all()
+
+            return [{"pilot": row.pilot_name, "phase": row.last_phase, "timestamp": row.timestamp} for row in rows]
+        except Exception as e:
+            print(f"Error get_top_pilots: {e}")
             raise HTTPException(status_code=500, detail="Read error.")
 
     @staticmethod
-    def update_pilot_phase(pilot_name: str, data: PhaseUpdate):
+    def update_pilot_phase(db: Session, pilot_name: str, data: PhaseUpdate):
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE phase_records SET last_phase = %s WHERE pilot_name = %s",
-                (data.new_phase, pilot_name)
-            )
-            filas_afectadas = cursor.rowcount
-            conn.commit()
-            conn.close()
+            records_updated = db.query(PhaseRecord).filter(PhaseRecord.pilot_name == pilot_name).update({"last_phase": data.new_phase})
+            db.commit()
 
-            if filas_afectadas == 0:
+            if records_updated == 0:
                 raise HTTPException(status_code=404, detail="The pilot does not exist.")
 
             return {
@@ -146,47 +157,56 @@ class LeaderboardService:
                 "message": f"Pilot {pilot_name} updated. New phase: {data.new_phase}."
             }
         except HTTPException:
+            db.rollback()
             raise
-        except Exception:
+        except Exception as e:
+            db.rollback()
+            print(f"Error update_pilot_phase: {e}")
             raise HTTPException(status_code=500, detail="Error modifying the record.")
 
     @staticmethod
-    def ban_pilot(pilot_name: str):
+    def ban_pilot(db: Session, pilot_name: str):
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM phase_records WHERE pilot_name = %s", (pilot_name,))
-            filas_afectadas = cursor.rowcount
-            conn.commit()
-            conn.close()
+            records_deleted = db.query(PhaseRecord).filter(PhaseRecord.pilot_name == pilot_name).delete()
+            db.commit()
 
-            if filas_afectadas == 0:
+            if records_deleted == 0:
                 raise HTTPException(status_code=404, detail="The pilot does not exist.")
 
             return {"status": "success", "message": f"Pilot {pilot_name} deleted from the records."}
         except HTTPException:
+            db.rollback()
             raise
-        except Exception:
+        except Exception as e:
+            db.rollback()
+            print(f"Error ban_pilot: {e}")
             raise HTTPException(status_code=500, detail="Error to execute the delete command.")
 
     @staticmethod
-    def get_all_pilots():
+    def get_all_pilots(db: Session):
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT p1.pilot_name, p1.last_phase as max_phase, MIN(p1.timestamp) as timestamp
-                FROM phase_records p1
-                INNER JOIN (
-                    SELECT pilot_name, MAX(last_phase) as max_phase
-                    FROM phase_records
-                    GROUP BY pilot_name
-                ) p2 ON p1.pilot_name = p2.pilot_name AND p1.last_phase = p2.max_phase
-                GROUP BY p1.pilot_name, p1.last_phase
-                ORDER BY max_phase DESC, timestamp ASC
-            ''')
-            rows = cursor.fetchall()
-            conn.close()
-            return [{"pilot": row[0], "phase": row[1], "timestamp": row[2]} for row in rows]
-        except Exception:
+            subq = db.query(
+                PhaseRecord.pilot_name,
+                func.max(PhaseRecord.last_phase).label('max_phase')
+            ).group_by(PhaseRecord.pilot_name).subquery()
+
+            rows = db.query(
+                PhaseRecord.pilot_name,
+                PhaseRecord.last_phase,
+                func.min(PhaseRecord.timestamp).label('timestamp')
+            ).join(
+                subq,
+                (PhaseRecord.pilot_name == subq.c.pilot_name) &
+                (PhaseRecord.last_phase == subq.c.max_phase)
+            ).group_by(
+                PhaseRecord.pilot_name,
+                PhaseRecord.last_phase
+            ).order_by(
+                PhaseRecord.last_phase.desc(),
+                func.min(PhaseRecord.timestamp).asc()
+            ).all()
+
+            return [{"pilot": row.pilot_name, "phase": row.last_phase, "timestamp": row.timestamp} for row in rows]
+        except Exception as e:
+            print(f"Error get_all_pilots: {e}")
             raise HTTPException(status_code=500, detail="Read error.")
