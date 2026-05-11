@@ -1,32 +1,42 @@
 import os
-import psycopg2
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 from app.config.settings import settings
+from app.models.base import Base
 
-def get_db_connection():
-    if not settings.DATABASE_URL:
-        raise ValueError("DATABASE_URL is not set in environment variables")
-    return psycopg2.connect(settings.DATABASE_URL)
+if not settings.DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in environment variables")
+
+# Ensure psycopg2 is used with SQLAlchemy's postgresql dialect
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(
+    db_url, 
+    pool_pre_ping=True,  # Useful for handling disconnected connections
+    pool_size=10, 
+    max_overflow=20
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    if not settings.DATABASE_URL:
-        print("DATABASE_URL is not set. Skipping DB initialization.")
-        return
-        
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS phase_records (
-                id SERIAL PRIMARY KEY,
-                pilot_name TEXT NOT NULL,
-                last_phase INTEGER NOT NULL,
-                device_id TEXT NOT NULL,
-                timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        conn.commit()
-        conn.close()
+        # Import models here to ensure they are registered with Base.metadata before create_all
+        import app.models.phase_record
+        Base.metadata.create_all(bind=engine)
+        print("Database initialized successfully.")
     except Exception as e:
         print(f"Error initializing DB: {e}")
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Initialize tables when this module is imported (keeps original behavior)
 init_db()
