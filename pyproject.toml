@@ -1,0 +1,67 @@
+[project]
+name = "advad-backend"
+version = "0.1.0"
+description = "Advad AI Server — FastAPI backend that proxy requests to Gemini and manage a real-time leaderboard for ADVAD - a Godot game."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "ANGELUSD11", email = "angelleonardohern3@gmail.com" },
+]
+keywords = ["fastapi", "godot", "leaderboard", "gemini", "ai-proxy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+
+dependencies = [
+    "fastapi==0.136.1",
+    "slowapi==0.1.9",
+    "pydantic==2.13.4",
+    "google-generativeai==0.8.6",
+    "google-genai==2.4.0",
+    "uvicorn==0.47.0",
+    "gunicorn==26.0.0",
+    "python-dotenv==1.2.2",
+    "psycopg2-binary==2.9.12",
+    "cryptography==48.0.0",
+    "SQLAlchemy==2.0.49",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[project.urls]
+Repository = "https://github.com/ADVAD1D/advad-backend"
+Issues = "https://github.com/ADVAD1D/advad-backend/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B"]
